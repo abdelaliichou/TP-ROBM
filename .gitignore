@@ -1,17 +1,15 @@
-
-# pixi environments
-.pixi
+# Pixi / virtual environments
+.pixi/
 *.egg-info
 
-# ROS packages source
-src/
-
-# ROS build files
+# ROS2 build folders
 build/
-devel/
 install/
 log/
 
-# Editor files
+# Editor / IDE
 .vscode/
 .idea/
+
+# Other OS files
+.DS_Store
