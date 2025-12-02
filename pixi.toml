@@ -1,0 +1,47 @@
+[workspace]
+name = "robm"
+description = "Development environment for ROBM ROS packages"
+channels = ["robostack-kilted", "conda-forge"]
+platforms = ["linux-64", "win-64", "osx-64", "osx-arm64", "linux-aarch64"]
+
+# This will automatically activate the ros workspace on activation
+[activation]
+scripts = ["install/setup.bash"]
+[target.win.activation]
+scripts = ["install/setup.bat"]
+
+[activation.env]
+ROS_AUTOMATIC_DISCOVERY_RANGE = "LOCALHOST"
+ROS_DOMAIN_ID = "1"
+
+# To build you can use - `pixi run build <Any other temporary args>`
+[target.unix.tasks]
+build = {cmd = "colcon build --symlink-install --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DPython_FIND_VIRTUALENV=ONLY -DPython3_FIND_VIRTUALENV=ONLY", inputs = ["src"]}
+
+[target.win-64.tasks]
+build = {cmd = "colcon build --merge-install --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DPython_FIND_VIRTUALENV=ONLY -DPython3_FIND_VIRTUALENV=ONLY", inputs = ["src"]}
+
+# Dependencies used by all environments
+[dependencies]
+python = "*"
+# Build tools
+compilers = "*"
+cmake = "*"
+pkg-config = "*"
+make = "*"
+ninja = "*"
+# ROS specific tools
+rosdep = "*"
+colcon-common-extensions = "*"
+ros-kilted-desktop = "*"
+
+[target.linux.dependencies]
+libgl-devel = "*"
+
+
+[tasks]
+rviz2 = { cmd = "ros2 run rviz2 rviz2", description = "Start RViz2" }
+udp_bridge = { cmd = "ros2 run robm_bridge udp_bridge", description = "Start ROS2-Robot UDP Bridge", depends-on = ["build"] }
+
+[target.osx.tasks]
+udp_bridge = { cmd = "bash -c 'source ./install/setup.bash && ros2 run robm_bridge udp_bridge'", description = "Start ROS2-Robot UDP Bridge", depends-on = ["build"] }

@@ -1,0 +1,17 @@
+
+# pixi environments
+.pixi
+*.egg-info
+
+# ROS packages source
+src/
+
+# ROS build files
+build/
+devel/
+install/
+log/
+
+# Editor files
+.vscode/
+.idea/

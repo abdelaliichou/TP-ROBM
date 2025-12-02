@@ -1,0 +1,6 @@
+[submodule "src/robm_interfaces"]
+	path = src/robm_interfaces
+	url = https://gitlab2.istic.univ-rennes1.fr/robm/ros/robm_interfaces.git
+[submodule "src/robm_bridge"]
+	path = src/robm_bridge
+	url = https://gitlab2.istic.univ-rennes1.fr/robm/ros/robm_bridge.git
