@@ -756,6 +756,8 @@ ros2 run key_teleop key_teleop --ros-args -p rotation_rate:=0.5 -r key_vel:=cmd_
 ```
 ![Robot movement](<images/move robot keyboard interface.png>)
 
+---
+
 ### Move robot with Mouse
 
 ```
