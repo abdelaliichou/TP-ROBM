@@ -17,7 +17,7 @@ Assembler le robot mobile à partir des composants fournis : M5StickC Plus, Rove
 Le robot a été assemblé en suivant le livret fourni sur Moodle.
 Tous les modules ont été connectés à l’aide des ports Grove conformément aux instructions.
 
-### 📸 *Photo de mon robot assemblé*
+### 📸 _Photo de mon robot assemblé_
 
 ![Robot assemblé](images/robot.jpg)
 
@@ -27,12 +27,12 @@ Tous les modules ont été connectés à l’aide des ports Grove conformément 
 
 ### ✔️ Allumage
 
-* M5StickC Plus activé via le bouton arrière-gauche
-  
+- M5StickC Plus activé via le bouton arrière-gauche
+
 ### ✔️ Connexion WiFi
 
-* Réseau : `ROBM_Moulitine`
-* Mot de passe : `WALL-E!SuzanCalvin`
+- Réseau : `ROBM_Moulitine`
+- Mot de passe : `WALL-E!SuzanCalvin`
 
 ---
 
@@ -52,7 +52,7 @@ pixi run udp_bridge
 
 Cette commande active la communication entre le robot et ROS2.
 
-### 📸 *Capture d’écran : communication avec le robot*
+### 📸 _Capture d’écran : communication avec le robot_
 
 ![Topics list](images/communication.png)
 
@@ -68,7 +68,7 @@ Commande utilisée :
 ros2 topic list
 ```
 
-### 📸 *Capture d’écran : liste des topics*
+### 📸 _Capture d’écran : liste des topics_
 
 ![Topics list](images/topics.png)
 
@@ -84,7 +84,7 @@ ros2 topic list
 ros2 topic echo /tof
 ```
 
-### 📸 *Capture d’écran : capture du distance*
+### 📸 _Capture d’écran : capture du distance_
 
 ![Topics list](images/tof.png)
 
@@ -94,15 +94,15 @@ ros2 topic echo /tof
 Le capteur ToF renvoie parfois des valeurs incorrectes (0, très grandes valeurs).
 Cela se produit lorsque :
 
-* l’objet est trop loin
-* le capteur est trop proche de l’objet
+- l’objet est trop loin
+- le capteur est trop proche de l’objet
 
-### 📈 Affichage dans *rqt*
+### 📈 Affichage dans _rqt_
 
-* Ajout d’un onglet `Plugins/visualization/plot`
-* Ajout d’un `topic/range`
+- Ajout d’un onglet `Plugins/visualization/plot`
+- Ajout d’un `topic/range`
 
-### 📸 *Capture d’écran du graphe ToF dans rqt GUI*
+### 📸 _Capture d’écran du graphe ToF dans rqt GUI_
 
 ![Topics list](images/tof_graph.png)
 
@@ -120,33 +120,30 @@ ros2 topic echo /color
 
 Voici mes mesures :
 
-| Type de sol | R | G | B | Luminosité |
-| ----------- | - | - | - | ---------- |
-| Bleu        | 1 | 13| 59|     37     |
-| Green       | 6 | 32| 12|     210    |
-| Rouge       | 51| 6 | 8 |     50     |
+| Type de sol | R   | G   | B   | Luminosité |
+| ----------- | --- | --- | --- | ---------- |
+| Bleu        | 1   | 13  | 59  | 37         |
+| Green       | 6   | 32  | 12  | 210        |
+| Rouge       | 51  | 6   | 8   | 50         |
 
-### 📸 *Capture d’écran du Rouge*
+### 📸 _Capture d’écran du Rouge_
 
 ![Topics list](images/rouge.png)
 
-
-### 📸 *Capture d’écran du Blue*
+### 📸 _Capture d’écran du Blue_
 
 ![Topics list](images/blue.png)
 
-
-### 📸 *Capture d’écran du Green*
+### 📸 _Capture d’écran du Green_
 
 ![Topics list](images/green.png)
-
 
 ### **Question : À quoi sert ce capteur ?**
 
 **Réponse :**
 
-* Reconnaissance de surfaces
-* Détection de zones colorées
+- Reconnaissance de surfaces
+- Détection de zones colorées
 
 ---
 
@@ -159,20 +156,24 @@ Commande utilisée :
 ```
 cd src
 ```
+
 ```
 ros2 pkg create --build-type ament_python --node-name couleur robm_tp1_color
 ```
+
 ```
 cd ..
 ```
+
 ```
 colcon build or pixi run build
 ```
+
 ```
 source install/setup.bash
 ```
 
-### 📸 *Capture de l’arborescence du package*
+### 📸 _Capture de l’arborescence du package_
 
 ![rborescence package](images/structure.png)
 
@@ -242,15 +243,19 @@ def main(args=None):
 ```
 pixi shell
 ```
+
 ```
 cd ~/uni_projects/ROBM/robm-pixi
 ```
+
 ```
 colcon build or pixi run build
 ```
+
 ```
 source install/setup.bash
 ```
+
 ```
 ros2 run robm_tp1_color couleur
 ```
@@ -261,7 +266,7 @@ ros2 run robm_tp1_color couleur
 ros2 topic echo /nom_couleur
 ```
 
-### 📸 *Capture : topic nom_couleur*
+### 📸 _Capture : topic nom_couleur_
 
 ```
 ![nom_couleur](CHEMIN_VERS_L_IMAGE)
@@ -281,7 +286,7 @@ Le schéma attendu :
 /color  --->  /couleur  --->  /nom_couleur
 ```
 
-### 📸 *Capture d’écran du graphe ROS2*
+### 📸 _Capture d’écran du graphe ROS2_
 
 ```
 ![rqt_graph](CHEMIN_VERS_L_IMAGE)
@@ -291,10 +296,10 @@ Le schéma attendu :
 
 # **8. Problèmes rencontrés**
 
-* difficultés de connexion WiFi
-* erreur Python dans le package (ex : rclpy)
-* capteur ToF instable
-* problème avec rqt qui ne rafraîchit pas & très lent
+- difficultés de connexion WiFi
+- erreur Python dans le package (ex : rclpy)
+- capteur ToF instable
+- problème avec rqt qui ne rafraîchit pas & très lent
 
 ---
 
@@ -302,12 +307,12 @@ Le schéma attendu :
 
 Ce TP m’a permis de :
 
-* comprendre & manipuler ROS2 (topics, publishers, subscribers)
-* utiliser *rqt* pour visualiser des données
-* développer un nœud ROS2 fonctionnel de détection de couleur
-* publier un message personnalisé sur un topic
+- comprendre & manipuler ROS2 (topics, publishers, subscribers)
+- utiliser _rqt_ pour visualiser des données
+- développer un nœud ROS2 fonctionnel de détection de couleur
+- publier un message personnalisé sur un topic
 
-# 📝 Notes: 
+# 📝 Notes:
 
 ### Démarrage de l’environnement ROS
 
@@ -322,6 +327,7 @@ pixi shell
 ```
 pixi shell
 ```
+
 ```
 ros2 run robm_bridge udp_bridge
 ```
@@ -337,9 +343,11 @@ ros2 topic list
 ```
 ros2 topic echo /topic
 ```
+
 ```
 ros2 topic echo /color
 ```
+
 ```
 ros2 topic echo /tof
 ```
@@ -349,15 +357,19 @@ ros2 topic echo /tof
 ```
 cd src (obligatory, so it will be created along side with the robm_interfaces)
 ```
+
 ```
 ros2 pkg create --build-type ament_python --node-name Python_noeud_file Topic_package_name
 ```
+
 ```
 cd ..
 ```
+
 ```
 colcon build or pixi run build
 ```
+
 ```
 source install/setup.bash
 ```
@@ -378,6 +390,7 @@ self.subscription = self.create_subscription(
 ```
 self.publisher = self.create_publisher(String, 'topic_name', 10)
 ```
+
 ```
 self.publisher.publish("message")
 ```
@@ -387,15 +400,19 @@ self.publisher.publish("message")
 ```
 pixi shell
 ```
+
 ```
 cd ~/uni_projects/ROBM/robm-pixi
 ```
+
 ```
 colcon build or pixi run build
 ```
+
 ```
 source install/setup.bash
 ```
+
 ```
 ros2 run Topic_package_name Python_noeud_file
 ```
@@ -403,21 +420,24 @@ ros2 run Topic_package_name Python_noeud_file
 ### Consuming the Python_noeud_file topic in terminal N2
 
 if we show all the topics, we will se the one created by the package we runned in the previous command
+
 ```
 ros2 topic list
 ```
 
 We consume this previous created topic
+
 ```
 pixi shell
 ```
+
 ```
 cd ~/uni_projects/ROBM/robm-pixi
 ```
+
 ```
 ros2 topic echo /topic_name
 ```
-
 
 ---
 
@@ -432,37 +452,47 @@ ros2 topic echo /topic_name
 ### Configuration du réparation
 
 Mettre à jour le sous-module ROS Pixi
+
 ```
 cd pixi home
 ```
+
 ```
 git submodule update --init --recursive --remote
 ```
 
 Installer teleop_tools (pour contrôler avec clavier/souris) :
+
 ```
 cd <home>/src
 ```
+
 ```
 git clone https://github.com/ros-teleop/teleop_tools.git
 ```
+
 ```
 cd ..
 ```
+
 ```
 pixi shell
 ```
+
 ```
 colcon build or pixi run build
 ```
+
 ```
 source install/setup.bash
 ```
 
 Connexion au robot dans un autre terminal :
+
 ```
 pixi shell
 ```
+
 ```
 ros2 run robm_bridge udp_bridge
 ```
@@ -474,18 +504,23 @@ cd <home>/src
 ```
 
 Créer le package Python
+
 ```
 ros2 pkg create --build-type ament_python --node-name avance_motor robm_tp2_move
 ```
+
 ```
 cd ..
 ```
+
 ```
 pixi shell
 ```
+
 ```
 colcon build or pixi run build
 ```
+
 ```
 source install/setup.bash
 ```
@@ -563,14 +598,17 @@ if __name__ == '__main__':
 ### Test du nœud
 
 Lancer udp_bridge dans un terminal1
+
 ```
 pixi shell
 ```
+
 ```
 ros2 run robm_tp2_move avance_motor
 ```
 
 Visualiser le réseau ROS2
+
 ```
 rqt_graph
 ```
@@ -578,6 +616,7 @@ rqt_graph
 ### Créer d’autres mouvements
 
 Tourne sur place : `tourne_motor.py`
+
 ```
 msg.front_left = -0.5
 msg.front_right = 0.5
@@ -586,6 +625,7 @@ msg.rear_right = 0.5
 ```
 
 Tourner à gauche : `gauche_motor.py`
+
 ```
 msg.front_left = -0.5
 msg.front_right = 0.5
@@ -594,6 +634,7 @@ msg.rear_right = -0.5
 ```
 
 Tourner à droit : `droit_motor.py`
+
 ```
 msg.front_left = 0.5
 msg.front_right = -0.5
@@ -602,6 +643,7 @@ msg.rear_right = 0.5
 ```
 
 Marche arrière : `back_motor.py`
+
 ```
 msg.front_left = -1.0
 msg.front_right = -1.0
@@ -610,6 +652,7 @@ msg.rear_right = -1.0
 ```
 
 Marche avant : `avance_motor.py`
+
 ```
 msg.front_left = 0.5
 msg.front_right = 0.5
@@ -618,6 +661,7 @@ msg.rear_right = 0.5
 ```
 
 Inside setup.py we add the shell commands
+
 ```
  entry_points={
       'console_scripts': [
@@ -631,45 +675,51 @@ Inside setup.py we add the shell commands
 ```
 
 Maintenant, tu peux lancer tes trois nœuds avec :
+
 ```
 ros2 run robm_tp2_move avance_motor
 ```
-### 📸 *Capture d’écran du Robot avance*
+
+### 📸 _Capture d’écran du Robot avance_
 
 ![Robot movement](images/avance.png)
 
 ```
 ros2 run robm_tp2_move back_motor
 ```
-### 📸 *Capture d’écran du Robot back*
+
+### 📸 _Capture d’écran du Robot back_
 
 ![Robot movement](images/back.png)
 
 ```
 ros2 run robm_tp2_move droit_motor
 ```
-### 📸 *Capture d’écran du Robot droit*
+
+### 📸 _Capture d’écran du Robot droit_
 
 ![Robot movement](images/droit.png)
 
 ```
 ros2 run robm_tp2_move gauche_motor
 ```
-### 📸 *Capture d’écran du Robot gauche*
+
+### 📸 _Capture d’écran du Robot gauche_
 
 ![Robot movement](images/gauche.png)
 
 ```
 ros2 run robm_tp2_move tourne_motor
 ```
-### 📸 *Capture d’écran du Robot tourne*
+
+### 📸 _Capture d’écran du Robot tourne_
 
 ![Robot movement](images/tourne.png)
-
 
 ### Move robot with keyboard
 
 create the new movement python node
+
 ```
 import rclpy
 from rclpy.node import Node
@@ -735,16 +785,56 @@ if __name__ == "__main__":
 ```
 
 in the first terminal
+
 ```
 ros2 run robm_tp2_move dynamic_motor
 ```
+
 ![Robot movement](<images/move robot puthon file.png>)
 
 in the second terminal
+
 ```
  ros2 run key_teleop key_teleop --ros-args -p rotation_rate:=0.5 -r key_vel:=vel
 ```
+
 ![Robot movement](<images/move robot keyboard command.png>)
 ![Robot movement](<images/move robot keyboard interface.png>)
 
+---
 
+# 📝 **Rapport de TP – Robotique Mobile (TP3)**
+
+**Étudiant :** Abdelali ichou
+**Groupe :** Group1, M2 ILA
+**Date :** 07-12-2025
+
+### Sop on the wall command
+
+```
+ros2 run robm_tp3_roomba collision
+```
+
+### Stop on the wall and change direction command
+
+```
+ros2 run robm_tp3_roomba anticollision
+```
+
+![Robot movement](<images/tof collision.png>)
+
+### Stop when facing the green color
+
+```
+ros2 run robm_tp3_roomba dock
+```
+
+![Robot movement](images/dock.png)
+
+### Stop when almost fallling down
+
+```
+ros2 run robm_tp3_roomba fall
+```
+
+![Robot movement](images/falling.png)

@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'robm_tp2_move'
+package_name = 'robm_tp3_roomba'
 
 setup(
     name=package_name,
@@ -24,13 +24,10 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'avance_motor = robm_tp2_move.avance_motor:main',
-            'gauche_motor = robm_tp2_move.gauche_motor:main',
-            'tourne_motor = robm_tp2_move.tourne_motor:main',
-            'back_motor = robm_tp2_move.back_motor:main',
-            'droit_motor = robm_tp2_move.droit_motor:main',
-            'dynamic_motor = robm_tp2_move.dynamic_motor:main',  
-            'full_dynamic = robm_tp2_move.full_dynamic_motor:main',
+            'anticollision = robm_tp3_roomba.anticollision:main',
+            'collision = robm_tp3_roomba.collision:main',
+            'dock = robm_tp3_roomba.auto_dock:main',
+            'fall = robm_tp3_roomba.anti_fall:main',
         ],
     },
 )
