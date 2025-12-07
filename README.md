@@ -801,6 +801,23 @@ in the second terminal
 ![Robot movement](<images/move robot keyboard command.png>)
 ![Robot movement](<images/move robot keyboard interface.png>)
 
+### Move robot with keyboard
+
+We will the predefined keyboard commands, we dont need to run our 3rd script
+```
+ros2 run key_teleop key_teleop --ros-args -p rotation_rate:=0.5 -r key_vel:=cmd_vel
+```
+![Robot movement](<images/move robot keyboard interface.png>)
+
+---
+
+### Move robot with Mouse
+
+```
+ros2 run mouse_teleop mouse_teleop --ros-args -p holonomic:=True -p frequency:=10.0 -r mouse_vel:=cmd_vel
+```
+
+
 ---
 
 # 📝 **Rapport de TP – Robotique Mobile (TP3)**
