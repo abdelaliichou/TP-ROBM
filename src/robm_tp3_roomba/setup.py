@@ -28,6 +28,7 @@ setup(
             'collision = robm_tp3_roomba.collision:main',
             'dock = robm_tp3_roomba.auto_dock:main',
             'fall = robm_tp3_roomba.anti_fall:main',
+            'cleaner = robm_tp3_roomba.cleaner:main',
         ],
     },
 )

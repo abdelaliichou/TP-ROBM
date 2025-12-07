@@ -804,9 +804,11 @@ in the second terminal
 ### Move robot with keyboard
 
 We will the predefined keyboard commands, we dont need to run our 3rd script
+
 ```
 ros2 run key_teleop key_teleop --ros-args -p rotation_rate:=0.5 -r key_vel:=cmd_vel
 ```
+
 ![Robot movement](<images/move robot keyboard interface.png>)
 
 ---
@@ -816,7 +818,6 @@ ros2 run key_teleop key_teleop --ros-args -p rotation_rate:=0.5 -r key_vel:=cmd_
 ```
 ros2 run mouse_teleop mouse_teleop --ros-args -p holonomic:=True -p frequency:=10.0 -r mouse_vel:=cmd_vel
 ```
-
 
 ---
 
@@ -832,10 +833,202 @@ ros2 run mouse_teleop mouse_teleop --ros-args -p holonomic:=True -p frequency:=1
 ros2 run robm_tp3_roomba collision
 ```
 
+```
+iimport rclpy
+from rclpy.node import Node
+
+from geometry_msgs.msg import TwistStamped
+from sensor_msgs.msg import Range
+
+
+class Anticollision(Node):
+    """Improved anticollision with smoother, slower behavior and 90° turn."""
+    def __init__(self):
+        super().__init__('anticollision')
+
+        self.sub_tof = self.create_subscription(
+            Range, 'tof', self.tof_callback, 10
+        )
+
+        self.pub_vel = self.create_publisher(TwistStamped, 'cmd_vel', 10)
+
+        # Slower timer → smoother reactions (10 Hz instead of 20 Hz)
+        self.timer = self.create_timer(0.1, self.timer_callback)
+
+        self.current_range = None
+
+        # For smooth speed change
+        self.current_speed = 0.0
+
+    def tof_callback(self, msg: Range):
+        """Save distance from TOF sensor."""
+        self.current_range = msg.range
+
+    def timer_callback(self):
+        msg = TwistStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = 'base_link'
+
+        if self.current_range is None:
+            msg.twist.linear.x = 0.0
+            self.pub_vel.publish(msg)
+            return
+
+        d = self.current_range
+
+        # ===== NEW THRESHOLDS =====
+        safe_distance = 0.80      # Start slowing earlier
+        stop_distance = 0.30    # At this distance → turn left
+
+        # ===== NEW SPEEDS =====
+        max_speed = 0.20          # Much slower
+        min_speed = 0.05
+
+        # ===== Behavior rules =====
+
+        # 1) Obstacle extremely close → turn LEFT 90°
+        if d < stop_distance:
+            msg.twist.linear.x = 0.0
+            msg.twist.angular.z = 1.2     # turn left smoothly
+            self.pub_vel.publish(msg)
+            self.get_logger().info("TOO CLOSE → Turning left")
+            return
+
+        # 2) Between stop_distance and safe_distance → slow down
+        if stop_distance <= d < safe_distance:
+            # Linear scale from max_speed → min_speed
+            speed = min_speed + (max_speed - min_speed) * ((d - stop_distance) / (safe_distance - stop_distance))
+        else:
+            # 3) Far away → full slow speed
+            speed = max_speed
+
+        # Smooth motion (avoid jerky behavior)
+        alpha = 0.2  # smoothing factor
+        self.current_speed = alpha * speed + (1 - alpha) * self.current_speed
+
+        # Apply forward speed
+        msg.twist.linear.x = float(self.current_speed)
+        msg.twist.angular.z = 0.0
+
+        self.pub_vel.publish(msg)
+        self.get_logger().info(f"Distance: {d:.2f} m → vx: {self.current_speed:.2f}")
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = Anticollision()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
 ### Stop on the wall and change direction command
 
 ```
 ros2 run robm_tp3_roomba anticollision
+```
+
+```
+import rclpy
+from rclpy.node import Node
+
+from geometry_msgs.msg import TwistStamped
+from sensor_msgs.msg import Range
+
+
+class Anticollision(Node):
+    """Move forward, slow down near walls, reverse when too close."""
+
+    def __init__(self):
+        super().__init__('anticollision')
+
+        # Subscribe to ToF sensor ("tof")
+        self.sub_tof = self.create_subscription(
+            Range,
+            'tof',
+            self.tof_callback,
+            10
+        )
+
+        # Publish TwistStamped to cmd_vel
+        self.pub_vel = self.create_publisher(
+            TwistStamped,
+            'cmd_vel',
+            10
+        )
+
+        # Timer: 20 Hz
+        self.timer = self.create_timer(0.05, self.timer_callback)
+
+        # Last measured distance (meters)
+        self.current_range = 1.0   # default = safe distance
+
+        self.get_logger().info("Anticollision node started.")
+
+    # -------------------------------
+    # TOF CALLBACK
+    # -------------------------------
+    def tof_callback(self, msg: Range):
+        """Save the measured range from the ToF sensor."""
+        self.current_range = msg.range   # <-- real distance in meters
+
+    # -------------------------------
+    # CONTROL LOOP (20 Hz)
+    # -------------------------------
+    def timer_callback(self):
+        msg = TwistStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = 'base_link'
+
+        d = self.current_range   # short alias
+
+        # --- BEHAVIOR RULES ---
+        if d > 0.50:
+            # Normal forward speed (0.3 m/s)
+            vx = 0.2
+
+        elif 0.20 < d <= 0.50:
+            # Slow down linearly
+            # when d = 0.50 → vx = 0.30
+            # when d = 0.20 → vx = 0.00
+            vx = 0.30 * (d - 0.20) / (0.50 - 0.20)
+
+        else:
+            # d < 0.20 → reverse proportionally
+            # when d = 0.20 → 0.0
+            # when d = 0.05 → -0.25 (example)
+            min_dist = 0.05
+            d_clamped = max(d, min_dist)
+            vx = -0.2 * (0.20 - d_clamped) / (0.20 - min_dist)
+
+        # Set TwistStamped fields
+        msg.twist.linear.x = float(vx)
+        msg.twist.linear.y = 0.0
+        msg.twist.angular.z = 0.0
+
+        # Publish
+        self.pub_vel.publish(msg)
+
+        # Debug
+        self.get_logger().info(
+            f"Distance={d:.2f} m → vx={vx:.2f} m/s"
+        )
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = Anticollision()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
 ```
 
 ![Robot movement](<images/tof collision.png>)
@@ -846,6 +1039,79 @@ ros2 run robm_tp3_roomba anticollision
 ros2 run robm_tp3_roomba dock
 ```
 
+```
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import TwistStamped
+from robm_interfaces.msg import Color
+import numpy as np
+
+class AutoDock(Node):
+    """Node to stop the robot on green base using color detection."""
+
+    def __init__(self):
+        super().__init__('auto_dock')
+
+        # Subscribe to the color sensor
+        self.sub_color = self.create_subscription(Color, 'color', self.color_callback, 10)
+
+        # Publisher for robot velocity
+        self.pub_vel = self.create_publisher(TwistStamped, 'cmd_vel', 10)
+
+        # Timer for periodic velocity commands
+        timer_period = 0.2  # 5 Hz for slower updates
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+
+        # Current color reading (r,g,b)
+        self.current_color = np.array([0.0, 0.0, 0.0])
+
+        # Green base RGB measured earlier
+        self.green_ref = np.array([7.31, 30.83, 12.60])
+        self.tolerance = 8.0  # Increase tolerance so it stops earlier
+
+        self.forward_speed = 0.05  # slower speed
+
+        self.get_logger().info("AutoDock node started (slower, safer).")
+
+    def color_callback(self, msg):
+        """Update current color reading."""
+        self.current_color = np.array([msg.r, msg.g, msg.b])
+
+    def timer_callback(self):
+        """Publish velocity based on color."""
+        cmd = TwistStamped()
+        cmd.header.stamp = self.get_clock().now().to_msg()
+        cmd.header.frame_id = 'base_link'
+
+        # Compute distance to green reference
+        dist = np.linalg.norm(self.current_color - self.green_ref)
+
+        if dist < self.tolerance:
+            # Green detected → stop
+            cmd.twist.linear.x = 0.0
+            cmd.twist.angular.z = 0.0
+            self.get_logger().info("Green base detected → STOP")
+        else:
+            # Move forward slowly
+            cmd.twist.linear.x = self.forward_speed
+            cmd.twist.angular.z = 0.0
+            self.get_logger().info(f"Moving forward | dist to green: {dist:.2f}")
+
+        self.pub_vel.publish(cmd)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = AutoDock()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
+```
+
 ![Robot movement](images/dock.png)
 
 ### Stop when almost fallling down
@@ -854,4 +1120,290 @@ ros2 run robm_tp3_roomba dock
 ros2 run robm_tp3_roomba fall
 ```
 
+```
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import TwistStamped
+from robm_interfaces.msg import Color
+import numpy as np
+
+class AntiFall(Node):
+    """Anti-fall node using color detection with precise left turn."""
+
+    def __init__(self):
+        super().__init__('anti_fall')
+
+        # Subscribe to color sensor
+        self.sub_color = self.create_subscription(Color, 'color', self.color_callback, 10)
+
+        # Publisher for robot velocity
+        self.pub_vel = self.create_publisher(TwistStamped, 'cmd_vel', 10)
+
+        # Timer for main loop (10 Hz)
+        self.timer = self.create_timer(0.1, self.timer_callback)
+
+        # Current color
+        self.current_color = np.array([0.0, 0.0, 0.0])
+
+        # Floor reference (set to your safe floor color)
+        self.floor_ref = np.array([8.0, 16.0, 27.0])
+        self.tolerance = 10.0  # increase for earlier detection
+
+        # Speeds
+        self.forward_speed = 0.05
+        self.reverse_speed = -0.15
+        self.turn_speed = 0.5  # rad/s
+
+        # State machine: 'startup', 'forward', 'reverse', 'turn'
+        self.state = 'startup'
+        self.state_counter = 0  # counts timer ticks in current state
+
+        # Grace period before checking for cliff (1 sec at 10 Hz)
+        self.startup_ticks = 10
+
+        # Turn duration in ticks for 90° turn
+        self.turn_ticks = int((np.pi / 2) / self.turn_speed * 10)  # 10 Hz timer
+
+    def color_callback(self, msg):
+        self.current_color = np.array([msg.r, msg.g, msg.b])
+
+    def timer_callback(self):
+        cmd = TwistStamped()
+        cmd.header.stamp = self.get_clock().now().to_msg()
+        cmd.header.frame_id = 'base_link'
+
+        dist = np.linalg.norm(self.current_color - self.floor_ref)
+
+        if self.state == 'startup':
+            # Initial grace period: just go forward without checking
+            cmd.twist.linear.x = self.forward_speed
+            cmd.twist.angular.z = 0.0
+            self.state_counter += 1
+            if self.state_counter >= self.startup_ticks:
+                self.state = 'forward'
+                self.state_counter = 0
+                self.get_logger().info("Startup complete. Edge detection active.")
+
+        elif self.state == 'forward':
+            if dist > self.tolerance:
+                # Detected cliff → switch to reverse
+                self.state = 'reverse'
+                self.state_counter = 0
+                self.get_logger().info("Edge detected! Reversing...")
+                cmd.twist.linear.x = self.reverse_speed
+                cmd.twist.angular.z = 0.0
+            else:
+                cmd.twist.linear.x = self.forward_speed
+                cmd.twist.angular.z = 0.0
+
+        elif self.state == 'reverse':
+            # Reverse for ~0.5 sec (5 ticks at 10Hz)
+            if self.state_counter < 5:
+                cmd.twist.linear.x = self.reverse_speed
+                cmd.twist.angular.z = 0.0
+            else:
+                # After reversing, start turning left
+                self.state = 'turn'
+                self.state_counter = 0
+                self.get_logger().info("Turning left 90°...")
+                cmd.twist.linear.x = 0.0
+                cmd.twist.angular.z = self.turn_speed  # positive = left
+
+        elif self.state == 'turn':
+            if self.state_counter < self.turn_ticks:
+                cmd.twist.linear.x = 0.0
+                cmd.twist.angular.z = self.turn_speed
+            else:
+                # Finished turn → resume forward
+                self.state = 'forward'
+                self.state_counter = 0
+                cmd.twist.linear.x = self.forward_speed
+                cmd.twist.angular.z = 0.0
+                self.get_logger().info("Resuming forward movement.")
+
+        # Only increment state_counter for reverse/turn states
+        if self.state not in ['startup', 'forward']:
+            self.state_counter += 1
+
+        self.pub_vel.publish(cmd)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = AntiFall()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
+```
+
 ![Robot movement](images/falling.png)
+
+### Robot nettoyeur with all what we've done before
+
+```
+ros2 run robm_tp3_roomba cleaner
+```
+
+```
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import TwistStamped
+from robm_interfaces.msg import Color
+import numpy as np
+
+class SpiralClean(Node):
+    """Robot nettoyeur: forward, anti-fall, auto dock, spiral red patches."""
+
+    def __init__(self):
+        super().__init__('spiral_clean')
+
+        # Color sensor subscription
+        self.sub_color = self.create_subscription(Color, 'color', self.color_callback, 10)
+
+        # Velocity publisher
+        self.pub_vel = self.create_publisher(TwistStamped, 'cmd_vel', 10)
+
+        # Timer (10 Hz)
+        self.timer = self.create_timer(0.1, self.timer_callback)
+
+        # Current color
+        self.current_color = np.array([0.0, 0.0, 0.0])
+
+        # References
+        self.floor_ref = np.array([8.0, 16.0, 27.0])
+        self.green_ref = np.array([7.31, 30.83, 12.60])
+        self.red_ref = np.array([48.0, 6.90, 8.94])
+
+        # Tolerances
+        self.floor_tol = 10.0
+        self.green_tol = 8.0
+        self.red_tol = 12.0
+
+        # Speeds
+        self.forward_speed = 0.05
+        self.reverse_speed = -0.15
+        self.turn_speed = 0.5
+        self.spiral_linear_speed = 0.04
+        self.spiral_angular_speed = 0.3
+
+        # State machine
+        self.state = 'startup'
+        self.state_counter = 0
+        self.startup_ticks = 10
+        self.turn_ticks = int((np.pi / 2) / self.turn_speed * 10)
+        self.spiral_ticks = 50  # ~5 sec spiral at 10 Hz
+
+    def color_callback(self, msg):
+        self.current_color = np.array([msg.r, msg.g, msg.b])
+
+    def timer_callback(self):
+        cmd = TwistStamped()
+        cmd.header.stamp = self.get_clock().now().to_msg()
+        cmd.header.frame_id = 'base_link'
+
+        # Compute distances
+        dist_floor = np.linalg.norm(self.current_color - self.floor_ref)
+        dist_green = np.linalg.norm(self.current_color - self.green_ref)
+        dist_red = np.linalg.norm(self.current_color - self.red_ref)
+
+        # ---------------------
+        # STATE MACHINE
+        # ---------------------
+        if self.state == 'startup':
+            # Move forward at start
+            cmd.twist.linear.x = self.forward_speed
+            cmd.twist.angular.z = 0.0
+            self.state_counter += 1
+            if self.state_counter >= self.startup_ticks:
+                self.state = 'forward'
+                self.state_counter = 0
+                self.get_logger().info("Startup complete. Normal operation.")
+
+        elif self.state == 'forward':
+            # Priority order: red patch → green base → edge → normal forward
+            if dist_red < self.red_tol:
+                self.state = 'spiral'
+                self.state_counter = 0
+                self.get_logger().info("Red patch detected! Starting spiral.")
+                cmd.twist.linear.x = self.spiral_linear_speed
+                cmd.twist.angular.z = self.spiral_angular_speed
+
+            elif dist_green < self.green_tol:
+                self.state = 'stop'
+                self.get_logger().info("Green base detected! Stopping.")
+                cmd.twist.linear.x = 0.0
+                cmd.twist.angular.z = 0.0
+
+            elif dist_floor > self.floor_tol:
+                self.state = 'reverse'
+                self.state_counter = 0
+                self.get_logger().info("Edge detected! Reversing...")
+                cmd.twist.linear.x = self.reverse_speed
+                cmd.twist.angular.z = 0.0
+
+            else:
+                cmd.twist.linear.x = self.forward_speed
+                cmd.twist.angular.z = 0.0
+
+        elif self.state == 'reverse':
+            if self.state_counter < 5:
+                cmd.twist.linear.x = self.reverse_speed
+                cmd.twist.angular.z = 0.0
+            else:
+                self.state = 'turn'
+                self.state_counter = 0
+                self.get_logger().info("Turning left 90°...")
+                cmd.twist.linear.x = 0.0
+                cmd.twist.angular.z = self.turn_speed
+
+        elif self.state == 'turn':
+            if self.state_counter < self.turn_ticks:
+                cmd.twist.linear.x = 0.0
+                cmd.twist.angular.z = self.turn_speed
+            else:
+                self.state = 'forward'
+                self.state_counter = 0
+                self.get_logger().info("Turn complete. Resuming forward.")
+                cmd.twist.linear.x = self.forward_speed
+                cmd.twist.angular.z = 0.0
+
+        elif self.state == 'spiral':
+            if self.state_counter < self.spiral_ticks:
+                cmd.twist.linear.x = self.spiral_linear_speed
+                cmd.twist.angular.z = self.spiral_angular_speed
+            else:
+                self.state = 'forward'
+                self.state_counter = 0
+                self.get_logger().info("Spiral complete. Resuming forward.")
+                cmd.twist.linear.x = self.forward_speed
+                cmd.twist.angular.z = 0.0
+
+        elif self.state == 'stop':
+            cmd.twist.linear.x = 0.0
+            cmd.twist.angular.z = 0.0
+
+        # Increment counters for timed states
+        if self.state in ['reverse', 'turn', 'spiral']:
+            self.state_counter += 1
+
+        # Publish command
+        self.pub_vel.publish(cmd)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = SpiralClean()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+![Robot movement](images/cleaner.png)
