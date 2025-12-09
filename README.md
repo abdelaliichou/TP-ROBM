@@ -1456,5 +1456,3 @@ Configurer RViz2 :
 - Le repère fixe pour l’odométrie
 
 ![Robot movement](images/odometry.png)
-![Robot movement](images/odometry.png)
-

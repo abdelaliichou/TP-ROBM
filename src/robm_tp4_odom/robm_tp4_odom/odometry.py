@@ -3,121 +3,94 @@
 
 import rclpy
 from rclpy.node import Node
-
+from geometry_msgs.msg import Twist, Quaternion
+from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Imu
-from geometry_msgs.msg import TwistStamped, Quaternion, PoseStamped
-from nav_msgs.msg import Odometry, Path
-
-from math import cos, sin
-
-# Fonctions utilitaires pour créer un Quaternion à partir du yaw
-def quaternion_from_yaw(yaw: float) -> Quaternion:
-    """Crée un Quaternion à partir d'un angle de lacet (yaw)"""
-    from math import cos, sin
-    roll = 0.0
-    pitch = 0.0
-    yaw /= 2.0
-    cr = cos(roll / 2.0)
-    sr = sin(roll / 2.0)
-    cp = cos(pitch / 2.0)
-    sp = sin(pitch / 2.0)
-    cy = cos(yaw)
-    sy = sin(yaw)
-
-    q = Quaternion()
-    q.w = cr * cp * cy + sr * sp * sy
-    q.x = sr * cp * cy - cr * sp * sy
-    q.y = cr * sp * cy + sr * cp * sy
-    q.z = cr * cp * sy - sr * sp * cy
-    return q
+import math
 
 class OdometryNode(Node):
     def __init__(self):
         super().__init__('odometry')
 
-        # Publisher pour publier la position estimée
-        self._odom_pub = self.create_publisher(Odometry, 'odometry', 10)
+        # 1. Souscription à la commande de vitesse (pour vx, vy)
+        # On estime la vitesse linéaire à partir de la commande [cite: 55]
+        self.sub_cmd = self.create_subscription(
+            Twist, 'cmd_vel', self.cmd_callback, 10)
+        
+        # 2. Souscription à l'IMU calibrée (pour omega_z) [cite: 53]
+        self.sub_imu = self.create_subscription(
+            Imu, 'calibrated_imu', self.imu_callback, 10)
+        
+        # 3. Publisher pour l'odométrie calculée [cite: 67]
+        self.pub_odom = self.create_publisher(Odometry, 'odometry', 10)
 
-        # Subscriber IMU
-        self._imu_sub = self.create_subscription(Imu, 'calibrated_imu', self.imu_callback, 10)
-        # Subscriber cmd_vel
-        self._cmd_sub = self.create_subscription(TwistStamped, 'cmd_vel', self.cmd_callback, 10)
-
-        # Inside your OdometryNode.__init__():
-        self._path_pub = self.create_publisher(Path, 'odom_path', 10)
-        self.path_msg = Path()
-        self.path_msg.header.frame_id = 'odom'
-
-        # Inside imu_callback, after publishing odometry:
-        pose_stamped = PoseStamped()
-        pose_stamped.header.stamp = odom_msg.header.stamp
-        pose_stamped.header.frame_id = odom_msg.header.frame_id
-        pose_stamped.pose = odom_msg.pose.pose
-
-        self.path_msg.header.stamp = odom_msg.header.stamp
-        self.path_msg.poses.append(pose_stamped)
-        self._path_pub.publish(self.path_msg)
-
-        # Vitesse linéaire et latérale (m/s)
-        self.vx = 0.0
-        self.vy = 0.0
-        # Vitesse angulaire mesurée par le gyro (rad/s)
-        self.omega = 0.0
-
-        # Position et orientation initiales
+        # État du robot (x, y, theta) initialisé à 0 [cite: 46]
         self.x = 0.0
         self.y = 0.0
         self.theta = 0.0
 
-        # Temps précédent pour calculer Δt
-        self.last_time = None
+        # Vitesses actuelles
+        self.v_x = 0.0
+        self.v_y = 0.0
+        
+        # Gestion du temps pour l'intégration
+        self.last_time = self.get_clock().now()
 
-    def cmd_callback(self, msg: TwistStamped):
-        """Mémorise la commande en vitesse"""
-        self.vx = msg.twist.linear.x
-        self.vy = msg.twist.linear.y
+    def cmd_callback(self, msg: Twist):
+        # Mémorisation de la commande reçue [cite: 56]
+        self.v_x = msg.linear.x
+        self.v_y = msg.linear.y
 
     def imu_callback(self, msg: Imu):
-        """Mise à jour de la position à partir de la vitesse angulaire et linéaire"""
-
-        # Temps courant
-        current_time = self.get_clock().now().nanoseconds * 1e-9  # secondes
-
-        # Calcul Δt
-        if self.last_time is None:
-            dt = 1.0 / 20.0  # supposition fréquence IMU 20Hz pour la première mesure
-        else:
-            dt = current_time - self.last_time
-
+        # C'est la réception de l'IMU qui déclenche le calcul et la publication 
+        current_time = self.get_clock().now()
+        
+        # Calcul du delta t (en secondes) [cite: 64]
+        # On récupère les nanosecondes et on convertit en secondes
+        dt = (current_time - self.last_time).nanoseconds / 1e9
         self.last_time = current_time
 
-        # Lecture vitesse angulaire autour de Z
-        self.omega = msg.angular_velocity.z
+        # La vitesse de rotation vient du gyromètre (IMU) [cite: 51]
+        omega_z = msg.angular_velocity.z
 
-        # Intégration discrète (Euler) pour calculer la nouvelle position
-        x_new = self.x + dt * (self.vx * cos(self.theta) - self.vy * sin(self.theta))
-        y_new = self.y + dt * (self.vx * sin(self.theta) + self.vy * cos(self.theta))
-        theta_new = self.theta + dt * self.omega
+        # Intégration d'Euler (Modèle d'évolution) [cite: 64]
+        # x_k+1 = x_k + dt * (vx * cos(theta) - vy * sin(theta))
+        self.x += dt * (self.v_x * math.cos(self.theta) - self.v_y * math.sin(self.theta))
+        
+        # y_k+1 = y_k + dt * (vx * sin(theta) + vy * cos(theta))
+        self.y += dt * (self.v_x * math.sin(self.theta) + self.v_y * math.cos(self.theta))
+        
+        # theta_k+1 = theta_k + dt * omega
+        self.theta += dt * omega_z
 
-        self.x = x_new
-        self.y = y_new
-        self.theta = theta_new
-
-        # Création du message Odometry
+        # Préparation du message Odometry [cite: 68]
         odom_msg = Odometry()
-        odom_msg.header.stamp = self.get_clock().now().to_msg()
-        odom_msg.header.frame_id = 'odom'
+        
+        # Header (Stamp et Frame ID) [cite: 70, 71]
+        odom_msg.header.stamp = current_time.to_msg()
+        odom_msg.header.frame_id = 'odom' # [cite: 78]
+        odom_msg.child_frame_id = 'base_link' # Convention standard
 
+        # Position
         odom_msg.pose.pose.position.x = self.x
         odom_msg.pose.pose.position.y = self.y
         odom_msg.pose.pose.position.z = 0.0
-        odom_msg.pose.pose.orientation = quaternion_from_yaw(self.theta)
+
+        # Orientation (Conversion Yaw -> Quaternion) [cite: 81]
+        odom_msg.pose.pose.orientation = self.quaternion_from_yaw(self.theta)
 
         # Publication
-        self._odom_pub.publish(odom_msg)
+        self.pub_odom.publish(odom_msg)
 
-        # Log (optionnel)
-        self.get_logger().info(f"x={self.x:.3f}, y={self.y:.3f}, theta={self.theta:.3f}")
+    def quaternion_from_yaw(self, yaw):
+        # Conversion manuelle d'un angle lacet (yaw) en Quaternion [cite: 79]
+        # q = (x, y, z, w) = (0, 0, sin(yaw/2), cos(yaw/2)) pour une rotation autour de Z
+        q = Quaternion()
+        q.x = 0.0
+        q.y = 0.0
+        q.z = math.sin(yaw / 2.0)
+        q.w = math.cos(yaw / 2.0)
+        return q
 
 def main(args=None):
     rclpy.init(args=args)
