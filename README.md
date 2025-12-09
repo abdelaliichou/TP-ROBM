@@ -1407,3 +1407,54 @@ if __name__ == "__main__":
 ```
 
 ![Robot movement](images/cleaner.png)
+
+---
+
+# 📝 **Rapport de TP – Robotique Mobile (TP4)**
+
+**Étudiant :** Abdelali ichou
+**Groupe :** Group1, M2 ILA
+**Date :** 08-12-2025
+
+### Start callibrating
+
+```
+ros2 run robm_tp4_odom calib_imu
+```
+
+![Robot movement](images/callibration.png)
+
+### Calculating the live localisation
+
+Lancer le nœud de calibrage IMU
+```
+ros2 run robm_tp4_odom calib_imu
+```
+
+Lancer le nœud d’odométrie
+```
+ros2 run robm_tp4_odom odometry
+```
+
+Lancer la télé-opération
+```
+ros2 run key_teleop key_teleop --ros-args -p rotation_rate:=0.5 -r key_vel:=cmd_vel
+```
+
+Lancer RViz2 pour visualiser
+```
+rviz2
+```
+Configurer RViz2 :
+
+- Add → By topic → Odometry → odometry
+
+- Sélectionne le topic odometry
+
+- Frame Fixed : odom
+
+- Le repère fixe pour l’odométrie
+
+![Robot movement](images/odometry.png)
+![Robot movement](images/odometry.png)
+
