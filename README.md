@@ -1427,24 +1427,29 @@ ros2 run robm_tp4_odom calib_imu
 ### Calculating the live localisation
 
 Lancer le nœud de calibrage IMU
+
 ```
 ros2 run robm_tp4_odom calib_imu
 ```
 
 Lancer le nœud d’odométrie
+
 ```
 ros2 run robm_tp4_odom odometry
 ```
 
 Lancer la télé-opération
+
 ```
 ros2 run key_teleop key_teleop --ros-args -p rotation_rate:=0.5 -r key_vel:=cmd_vel
 ```
 
 Lancer RViz2 pour visualiser
+
 ```
 rviz2
 ```
+
 Configurer RViz2 :
 
 - Add → By topic → Odometry → odometry
@@ -1456,3 +1461,149 @@ Configurer RViz2 :
 - Le repère fixe pour l’odométrie
 
 ![Robot movement](images/odometry.png)
+
+-----
+
+# 📝 Rapport de TP – Robotique Mobile (TP5) : Navigation
+
+**Étudiant :** Abdelali ichou
+**Groupe :** Group1, M2 ILA
+**Date :** 08-12-2025
+
+## 1\. Objectifs du TP
+
+[cite_start]L'objectif de ce TP est de piloter l'orientation du robot à l'aide d'un contrôleur proportionnel, puis de commander le robot pour naviguer vers un point précis[cite: 121, 122]. Nous avons ensuite automatisé cette tâche pour suivre un chemin défini par des points de passage (waypoints).
+
+-----
+
+## 2\. Architecture et choix techniques
+
+### A. Contrôle du Cap
+
+Pour la première partie, nous avons utilisé une architecture basée sur l'odométrie :
+
+  * **Capteurs :** IMU (pour la vitesse de rotation) -\> Odométrie (intègre la position).
+  * [cite_start]**Commande :** Le nœud `control_heading` écoute le topic `/goal_pose` (défini dans RViz) et publie la commande de rotation sur `/cmd_vel`[cite: 166].
+  * [cite_start]**Algorithme :** Nous avons implémenté un régulateur proportionnel ($u = K \cdot error$) avec une gestion de l'angle modulo $2\pi$ (fonction `sawtooth`) pour éviter les tours complets inutiles[cite: 232, 234].
+
+### B. Navigation vers un point (Nœud `move`)
+
+Pour la navigation complète, le nœud `move` remplace `control_heading`.
+
+  * [cite_start]**Fonctionnement :** Il gère à la fois la rotation (s'orienter vers le but) et la translation (avancer)[cite: 240].
+  * [cite_start]**Logique :** Le robot s'oriente vers le but, avance tant que la distance est supérieure à 5 cm, et sa vitesse linéaire est régulée en fonction de l'alignement avec la cible (ralentissement si le robot ne fait pas face au but)[cite: 260, 262].
+
+-----
+
+## 3\. Réalisation et Résultats
+
+### Étape 1 : Mise en place et Navigation vers un point
+
+Pour valider le fonctionnement, nous avons lancé les nœuds dans l'ordre suivant pour assurer la dépendance des données :
+
+**1. Calibrage du gyromètre**
+Le robot doit être immobile pour calculer le biais du capteur.
+
+```bash
+ros2 run robm_tp4_odom calib_imu
+```
+
+![Robot movement](images/nav1.png)
+
+**2. Lancement de l'odométrie**
+Ce nœud intègre les données IMU et la vitesse commandée pour estimer la position $(x, y, \theta)$.
+
+```bash
+ros2 run robm_tp4_odom odometry
+```
+
+![Robot movement](images/nav2.png)
+
+**3. Lancement du nœud de navigation (`move`)**
+Ce nœud attend une consigne de but.
+
+```bash
+ros2 run robm_tp4_nav move
+```
+
+![Robot movement](images/nav3.png)
+
+**4. Visualisation (RViz2)**
+Configuration de RViz avec le *Fixed Frame* sur `odom` et ajout du topic `/odometry`.
+
+```bash
+rviz2
+```
+
+![Robot movement](images/nav4.png)
+
+**Résultat de la navigation :**
+En utilisant l'outil "2D Goal Pose", le robot s'oriente et rejoint le point cible.
+
+![Robot movement](images/navigation.png)
+
+-----
+
+### Étape 2 : Réalisation d’une mission (Points de passage)
+
+Nous avons développé le nœud `waypoints.py` pour automatiser la mission. [cite_start]Ce nœud envoie séquentiellement des objectifs à `move`[cite: 267].
+
+**Commande :**
+En plus des 4 terminaux précédents, nous lançons le gestionnaire de mission :
+
+```bash
+ros2 run robm_tp4_nav waypoints
+```
+
+**Résultat :**
+Le robot a parcouru une trajectoire carrée définie par les points $(1,0) \to (1,1) \to (0,1) \to (0,0)$.
+
+![Robot movement](images/nav_caree.png)
+
+-----
+
+### Étape 4 (Bonus) : Évitement d'obstacles
+
+**Architecture (Subsomption) :**
+Nous avons utilisé une architecture de subsomption où le nœud de sécurité intercepte la commande :
+
+  * **Avant :** `Move` $\to$ `/cmd_vel` $\to$ `Robot`
+  * **Après :** `Move` $\to$ `/cmd_vel_desired` $\to$ `Obstacle Avoid` $\to$ `/cmd_vel` $\to$ `Robot`
+
+Le nœud `obstacle_avoid` analyse l'intention de navigation, vérifie les capteurs (ToF), et décide de laisser passer l'ordre, de freiner, ou de prendre le contrôle total.
+
+**Algorithme (Machine à États) :**
+Pour respecter le cahier des charges et éviter les oscillations, nous avons implémenté une machine à 4 états :
+
+1.  **NORMAL :** Surveille la distance. Ralentit à 60cm, Arrêt total à 30cm. Si le robot est bloqué (commande reçue mais vitesse nulle) pendant 3 secondes, passage en mode manœuvre.
+2.  **SCANNING :** Le robot tourne sur lui-même jusqu'à trouver une voie libre (distance \> 70cm). Nous mémorisons la durée de cette rotation.
+3.  **ESCAPING :** Le robot avance de 40cm dans la nouvelle direction pour contourner l'obstacle.
+4.  **REALIGNING :** Le robot effectue la rotation inverse (basée sur la durée mémorisée) pour se remettre dans son cap initial (mouvement de "pas de côté") et éviter de revenir vers l'obstacle.
+
+**Commandes :**
+Pour tester cette architecture, nous utilisons le "remapping" ROS2 pour détourner la sortie du nœud `move`.
+
+**1. Lancement des nœuds de base**
+
+```bash
+ros2 run robm_tp4_odom calib_imu
+ros2 run robm_tp4_odom odometry
+```
+
+**2. Lancement de la navigation (Avec Remapping)**
+Le nœud écrit sur `cmd_vel_desired` au lieu de `cmd_vel`.
+
+```bash
+ros2 run robm_tp4_nav move --ros-args -r cmd_vel:=cmd_vel_desired
+```
+
+**3. Lancement du nœud de sécurité**
+Ce nœud fait le lien final avec le robot.
+
+```bash
+ros2 run robm_tp4_nav obstacle_avoid
+```
+![Robot movement](images/nav5.png)
+
+**Résultats :**
+Lorsque nous plaçons un obstacle sur la trajectoire, le robot s'arrête à distance de sécurité (30cm). Après 3 secondes d'attente, il déclenche sa manœuvre : il pivote, avance pour éviter l'objet, se réaligne, et reprend sa route vers l'objectif final.
